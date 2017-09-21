@@ -38,20 +38,37 @@ class BasicModel:
         pass
 
     @staticmethod
-    def conv_bn_relu_pool(X,W,b,train):
-        conv=tf.nn.conv2d(X,W,[1,1,1,1],padding='SAME')+b
-        bn=tf.layers.batch_normalization(conv,axis=3,training=train)
-        relu=tf.nn.relu(bn)
-        dropout=tf.nn.dropout(relu,0.5)
-        max1=tf.nn.max_pool(relu,[1,2,2,1],[1,2,2,1],'SAME')
-
-        return max1
+    def conv_bn_relu_pool_drop(x, dropout_prob, train_flag):
+        conv = tf.layers.conv2d(
+            inputs,
+            filters,
+            kernel_size,
+            strides=(1, 1),
+            padding='valid',
+            data_format='channels_last',
+            dilation_rate=(1, 1),
+            activation=None,
+            use_bias=True,
+            kernel_initializer=None,
+            bias_initializer=tf.zeros_initializer(),
+            kernel_regularizer=None,
+            bias_regularizer=None,
+            activity_regularizer=None,
+            trainable=True,
+            name=None,
+            reuse=None
+        )
+        bn = tf.layers.batch_normalization(conv, training=train_flag)
+        maxpool = tf.layers.max_pooling2d(bn, (2, 2), (2, 2), 'same')
+        relu = tf.nn.relu(maxpool)
+        out = tf.layers.dropout(relu, rate=dropout_prob, training=train_flag)
+        return out
 
     @staticmethod
-    def affine_bn_relu(X,w,b,train):
-        affine=tf.matmul(X,w)+b
-        bn=tf.layers.batch_normalization(affine,axis=1,training=train)
-        relu=tf.nn.relu(bn)
+    def affine_bn_relu(X, w, b, train):
+        affine = tf.matmul(X, w) + b
+        bn = tf.layers.batch_normalization(affine, axis=1, training=train)
+        relu = tf.nn.relu(bn)
         return relu
 
 
