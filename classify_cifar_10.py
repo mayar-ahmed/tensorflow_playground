@@ -19,6 +19,7 @@ def read_args():
     tf.app.flags.DEFINE_integer('num_epochs', "0", """ n_epochs """)
     tf.app.flags.DEFINE_integer('batch_size', "0", """ batch_size """)
     tf.app.flags.DEFINE_float('learning_rate', "0.0", """ learning_rate """)
+    tf.app.flags.DEFINE_float('reg', "0.0", """ reg lambda """)
     tf.app.flags.DEFINE_string('data_dir', "", """ Data dir """)
     tf.app.flags.DEFINE_string('exp_dir', "", """ Experiment dir to store ckpt & summaries """)
     tf.app.flags.DEFINE_boolean('train_n_test', False, """ Finish the train with the number of epochs then test """)
@@ -119,6 +120,10 @@ class BasicModel:
         self.correct_predictions = tf.equal(self.y, self.predictions)
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_predictions, tf.float32))
         self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores))
+
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('acc', self.accuracy)
+        self.merged_summaries = tf.summary.merge_all()
 
         with tf.name_scope('train-operation'):
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -400,11 +405,8 @@ class Train:
                                                                                                 :6])
 
             self.save_model()
-
-            # val the model on validation
-            if cur_epoch % 2 == 0:
-                self.val(step=self.model.global_step_tensor.eval(self.sess),
-                         epoch=self.model.global_epoch_tensor.eval(self.sess))
+            self.val(step=self.model.global_step_tensor.eval(self.sess),
+                     epoch=self.model.global_epoch_tensor.eval(self.sess))
 
         print("Training Finished")
 
@@ -439,7 +441,7 @@ class Train:
             feed_dict = {}
 
             # run the feed_forward
-            loss, acc, summaries_merged = self.sess.run(
+            loss, acc = self.sess.run(
                 [self.model.loss, self.model.accuracy],
                 feed_dict=feed_dict)
             # log loss and acc
@@ -539,11 +541,13 @@ def main():
         if args.train_n_test:
             operator.train()
             operator.save_model()
+            operator.load_best_model()
             operator.test()
         elif args.is_train:
             operator.train()
             operator.save_model()
         else:
+            operator.load_best_model()
             operator.test()
     except KeyboardInterrupt:
         operator.save_model()
