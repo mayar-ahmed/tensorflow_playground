@@ -525,15 +525,18 @@ def main():
     model.build()
     operator = Train(sess=sess, model=model, config=args)
 
-    if args.mode == 'train_n_test':
-        operator.train()
+    try:
+        if args.train_n_test:
+            operator.train()
+            operator.save_model()
+            operator.test()
+        elif args.is_train:
+            operator.train()
+            operator.save_model()
+        else:
+            operator.test()
+    except KeyboardInterrupt:
         operator.save_model()
-        operator.test()
-    elif args.mode == 'train':
-        operator.train()
-        operator.save_model()
-    else:
-        operator.test()
 
 
 if __name__ == '__main__':

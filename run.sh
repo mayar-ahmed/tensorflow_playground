@@ -2,7 +2,7 @@
 
 python classify_cifar_10.py \
     --model=Basic \
-    --n_epochs=5 \
+    --num_epochs=5 \
     --batch_size=16 \
     --learning_rate=0.0001 \
     --data_dir=cifar10 \
