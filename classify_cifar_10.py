@@ -15,7 +15,7 @@ def read_args():
     :return _args: the arguments of the process
     """
     tf.app.flags.DEFINE_string('model', "", """ MODEL NAME """)
-    tf.app.flags.DEFINE_integer('n_epochs', "0", """ n_epochs """)
+    tf.app.flags.DEFINE_integer('num_epochs', "0", """ n_epochs """)
     tf.app.flags.DEFINE_integer('batch_size', "0", """ batch_size """)
     tf.app.flags.DEFINE_float('learning_rate', "0.0", """ learning_rate """)
     tf.app.flags.DEFINE_string('data_dir', "", """ Data dir """)
@@ -74,7 +74,22 @@ def create_exp_dirs(args):
 class BasicModel:
     def __init__(self, config):
         self.config = config
-        pass
+
+        with tf.variable_scope('global_epoch'):
+            self.global_epoch_tensor = tf.Variable(-1, trainable=False, name='global_epoch')
+            self.global_epoch_input = tf.placeholder('int32', None, name='global_epoch_input')
+            self.global_epoch_assign_op = self.global_epoch_tensor.assign(self.global_epoch_input)
+
+        with tf.variable_scope('global_step'):
+            self.global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
+            self.global_step_input = tf.placeholder('int32', None, name='global_step_input')
+            self.global_step_assign_op = self.global_step_tensor.assign(self.global_step_input)
+
+        with tf.variable_scope('best_iou'):
+            # Save the best iou on validation
+            self.best_iou_tensor = tf.Variable(0, trainable=False, name='best_iou')
+            self.best_iou_input = tf.placeholder('float32', None, name='best_iou_input')
+            self.best_iou_assign_op = self.best_iou_tensor.assign(self.best_iou_input)
 
     def build(self):
         self.X= tf.placeholder(tf.float32,[None,32,32,3])
@@ -112,7 +127,6 @@ class BasicModel:
         bn = tf.layers.batch_normalization(conv, training=train_flag)
         maxpool = tf.layers.max_pooling2d(bn, (2, 2), (2, 2), 'same')
         out = tf.nn.relu(maxpool)
-
         return out
 
     @staticmethod
@@ -156,7 +170,6 @@ class Train:
 
         ##################################################################################
         # Init summaries
-
         # Summary variables
         self.scalar_summary_tags = ['train-loss-per-epoch', 'val-loss-per-epoch',
                                     'train-acc-per-epoch', 'val-acc-per-epoch']
@@ -167,6 +180,8 @@ class Train:
         self.init_summaries()
         # Create summary writer
         self.summary_writer = tf.summary.FileWriter(self.config.summary_dir, self.sess.graph)
+        #####################################################################################
+        self.load_data()
 
     def save_model(self):
         """
@@ -216,7 +231,38 @@ class Train:
             exit(-1)
 
     def load_data(self):
-        pass
+        print("Loading Training data..")
+        self.train_data = {'X': np.load(self.config.data_dir + "X_train.npy"),
+                           'Y': np.load(self.config.data_dir + "y_train.npy")}
+        self.train_data_len = self.train_data['X'].shape[0] - self.train_data['X'].shape[0] % self.config.batch_size
+        self.num_iterations_training_per_epoch = (
+                                                     self.train_data_len + self.config.batch_size - 1) // self.config.batch_size
+        print("Train-shape-x -- " + str(self.train_data['X'].shape) + " " + str(self.train_data_len))
+        print("Train-shape-y -- " + str(self.train_data['Y'].shape))
+        print("Num of iterations on training data in one epoch -- " + str(self.num_iterations_training_per_epoch))
+        print("Training data is loaded")
+
+        print("Loading Validation data..")
+        self.val_data = {'X': np.load(self.config.data_dir + "X_val.npy"),
+                         'Y': np.load(self.config.data_dir + "y_val.npy")}
+        self.val_data_len = self.val_data['X'].shape[0] - self.val_data['X'].shape[0] % self.config.batch_size
+        self.num_iterations_validation_per_epoch = (
+                                                       self.val_data_len + self.config.batch_size - 1) // self.config.batch_size
+        print("Val-shape-x -- " + str(self.val_data['X'].shape) + " " + str(self.val_data_len))
+        print("Val-shape-y -- " + str(self.val_data['Y'].shape))
+        print("Num of iterations on validation data in one epoch -- " + str(self.num_iterations_validation_per_epoch))
+        print("Validation data is loaded")
+
+        print("Loading Testing data..")
+        self.test_data = {'X': np.load(self.config.data_dir + "X_test.npy"),
+                          'Y': np.load(self.config.data_dir + "y_test.npy")}
+        self.test_data_len = self.test_data['X'].shape[0] - self.test_data['X'].shape[0] % self.config.batch_size
+        self.num_iterations_test_per_epoch = (
+                                                 self.test_data_len + self.config.batch_size - 1) // self.config.batch_size
+        print("test-shape-x -- " + str(self.test_data['X'].shape) + " " + str(self.test_data_len))
+        print("test-shape-y -- " + str(self.test_data['Y'].shape))
+        print("Num of iterations on test data in one epoch -- " + str(self.num_iterations_test_per_epoch))
+        print("test data is loaded")
 
     def init_summaries(self):
         """
@@ -246,14 +292,252 @@ class Train:
         if summaries_merged is not None:
             self.summary_writer.add_summary(summaries_merged, step)
 
-    def train(self):
-        pass
+    def generator(self, _data, _len):
+        start = 0
+        data = _data
+        len = _len
+        new_epoch_flag = True
+        idx = None
+        while True:
+            # init index array if it is a new_epoch
+            if new_epoch_flag:
+                idx = np.random.choice(len, len, replace=False)
+                new_epoch_flag = False
 
-    def validate(self):
-        pass
+            # select the mini_batches
+            mask = idx[start:start + self.config.batch_size]
+            x_batch = data['X'][mask]
+            y_batch = data['Y'][mask]
+
+            # update start idx
+            start += self.config.batch_size
+
+            if start >= len:
+                start = 0
+                new_epoch_flag = True
+
+            yield x_batch, y_batch
+
+    def train(self):
+        print("Training mode will begin NOW ..")
+        for cur_epoch in range(self.model.global_epoch_tensor.eval(self.sess) + 1, self.config.num_epochs + 1, 1):
+
+            # init tqdm and get the epoch value
+            tt = tqdm(self.generator(self.train_data, self.train_data_len),
+                      total=self.num_iterations_training_per_epoch,
+                      desc="epoch-" + str(cur_epoch) + "-")
+
+            # init acc and loss lists
+            loss_list = []
+            acc_list = []
+
+            summaries_merged = None
+
+            # loop by the number of iterations
+            for x_batch, y_batch in tt:
+                # get the cur_it for the summary
+                cur_it = self.model.global_step_tensor.eval(self.sess)
+
+                # Feed this variables to the network
+                # TODO
+                feed_dict = {}
+
+                # TODO revise it
+                # run the feed_forward
+                _, loss, acc, summaries_merged = self.sess.run(
+                    [self.model.train_op, self.model.loss, self.model.accuracy, self.model.merged_summaries],
+                    feed_dict=feed_dict)
+
+                # log loss and acc
+                loss_list += [loss]
+                acc_list += [acc]
+                # summarize
+                self.add_summary(cur_it, summaries_merged=summaries_merged)
+
+                # Update the Global step
+                self.model.global_step_assign_op.eval(session=self.sess,
+                                                      feed_dict={self.model.global_step_input: cur_it + 1})
+
+            # log loss and acc
+            total_loss = np.mean(loss_list)
+            total_acc = np.mean(acc_list)
+            # summarize
+            summaries_dict = dict()
+            summaries_dict['train-loss-per-epoch'] = total_loss
+            summaries_dict['train-acc-per-epoch'] = total_acc
+            self.add_summary(cur_it, summaries_dict=summaries_dict, summaries_merged=summaries_merged)
+
+            # Update the Global step
+            self.model.global_step_assign_op.eval(session=self.sess,
+                                                  feed_dict={self.model.global_step_input: cur_it + 1})
+
+            # Update the Cur Epoch tensor
+            # it is the last thing because if it is interrupted it repeat this
+            self.model.global_epoch_assign_op.eval(session=self.sess,
+                                                   feed_dict={self.model.global_epoch_input: cur_epoch + 1})
+
+            # print in console
+            tt.close()
+            print("epoch-" + str(cur_epoch) + "-" + "loss:" + str(total_loss) + "-" + " acc:" + str(total_acc)[
+                                                                                                :6])
+
+            self.save_model()
+
+            # val the model on validation
+            if cur_epoch % 2 == 0:
+                self.val(step=self.model.global_step_tensor.eval(self.sess),
+                         epoch=self.model.global_epoch_tensor.eval(self.sess))
+
+        print("Training Finished")
+
+    def val(self, step, epoch):
+        print("Validation at step:" + str(step) + " at epoch:" + str(epoch) + " ..")
+
+        # init tqdm and get the epoch value
+        tt = tqdm(range(self.num_iterations_validation_per_epoch), total=self.num_iterations_validation_per_epoch,
+                  desc="Val-epoch-" + str(epoch) + "-")
+
+        # init acc and loss lists
+        loss_list = []
+        acc_list = []
+
+        # idx of minibatch
+        idx = 0
+
+        # reset metrics
+        self.metrics.reset()
+
+        # get the maximum iou to compare with and save the best model
+        max_iou = self.model.best_iou.tensor.eval(self.sess)
+
+        # loop by the number of iterations
+        for cur_iteration in tt:
+            # load minibatches
+            x_batch = self.val_data['X'][idx:idx + self.args.batch_size]
+            y_batch = self.val_data['Y'][idx:idx + self.args.batch_size]
+
+            # update idx of minibatch
+            idx += self.args.batch_size
+
+            # Feed this variables to the network
+            feed_dict = {self.model.x_pl: x_batch,
+                         self.model.y_pl: y_batch,
+                         self.model.is_training: False
+                         }
+
+            # Run the feed forward but the last iteration finalize what you want to do
+            if cur_iteration < self.num_iterations_validation_per_epoch - 1:
+
+                # run the feed_forward
+                out_argmax, loss, acc, summaries_merged = self.sess.run(
+                    [self.model.out_argmax, self.model.loss, self.model.accuracy, self.model.merged_summaries],
+                    feed_dict=feed_dict)
+                # log loss and acc
+                loss_list += [loss]
+                acc_list += [acc]
+                # log metrics
+                self.metrics.update_metrics_batch(out_argmax, y_batch)
+
+            else:
+
+                # run the feed_forward
+                out_argmax, loss, acc, summaries_merged, segmented_imgs = self.sess.run(
+                    [self.model.out_argmax, self.model.loss, self.model.accuracy,
+                     self.model.merged_summaries, self.model.segmented_summary],
+                    feed_dict=feed_dict)
+                # log loss and acc
+                loss_list += [loss]
+                acc_list += [acc]
+                # log metrics
+                self.metrics.update_metrics_batch(out_argmax, y_batch)
+                # mean over batches
+                total_loss = np.mean(loss_list)
+                total_acc = np.mean(acc_list)
+                mean_iou = self.metrics.compute_final_metrics(self.num_iterations_validation_per_epoch)
+                # summarize
+                summaries_dict = dict()
+                summaries_dict['val-loss-per-epoch'] = total_loss
+                summaries_dict['val-acc-per-epoch'] = total_acc
+                summaries_dict['mean_iou_on_val'] = mean_iou
+                summaries_dict['val_prediction_sample'] = segmented_imgs
+                self.add_summary(step, summaries_dict=summaries_dict, summaries_merged=summaries_merged)
+
+                # print in console
+                tt.close()
+                print("Val-epoch-" + str(epoch) + "-" + "loss:" + str(total_loss) + "-" +
+                      "acc:" + str(total_acc)[:6] + "-mean_iou:" + str(mean_iou))
+                if mean_iou > max_iou:
+                    print("This validation got a new best iou. so we will save this one")
+                    # save the best model
+                    self.save_best_model()
+                    # Set the new maximum
+                    self.model.best_iou_assign_op.eval(session=self.sess,
+                                                       feed_dict={self.model.best_iou_input: mean_iou})
+
+                # Break the loop to finalize this epoch
+                break
 
     def test(self):
-        pass
+        print("Testing mode will begin NOW..")
+
+        # init tqdm and get the epoch value
+        tt = tqdm(range(self.test_data_len))
+
+        # init acc and loss lists
+        loss_list = []
+        acc_list = []
+        img_list = []
+
+        # idx of image
+        idx = 0
+
+        # reset metrics
+        self.metrics.reset()
+
+        # loop by the number of iterations
+        for cur_iteration in tt:
+            # load mini_batches
+            x_batch = self.test_data['X'][idx:idx + 1]
+            y_batch = self.test_data['Y'][idx:idx + 1]
+
+            # update idx of mini_batch
+            idx += 1
+
+            # Feed this variables to the network
+            feed_dict = {self.model.x_pl: x_batch,
+                         self.model.y_pl: y_batch,
+                         self.model.is_training: False
+                         }
+
+            # run the feed_forward
+            out_argmax, loss, acc, summaries_merged, segmented_imgs = self.sess.run(
+                [self.model.out_argmax, self.model.loss, self.model.accuracy,
+                 self.model.merged_summaries, self.model.segmented_summary],
+                feed_dict=feed_dict)
+
+            # log loss and acc
+            loss_list += [loss]
+            acc_list += [acc]
+            img_list += [segmented_imgs[0]]
+
+            # log metrics
+            self.metrics.update_metrics(out_argmax[0], y_batch[0], 0, 0)
+
+        # mean over batches
+        total_loss = np.mean(loss_list)
+        total_acc = np.mean(acc_list)
+        mean_iou = self.metrics.compute_final_metrics(self.test_data_len)
+
+        # print in console
+        tt.close()
+        print("Here the statistics")
+        print("Total_loss: " + str(total_loss))
+        print("Total_acc: " + str(total_acc)[:6])
+        print("mean_iou: " + str(mean_iou))
+
+        print("Plotting imgs")
+        for i in range(len(img_list)):
+            plt.imsave(self.args.imgs_dir + 'test_' + str(i) + '.png', img_list[i])
 
 
 def main():
@@ -279,11 +563,11 @@ def main():
 
     if args.mode == 'train_n_test':
         operator.train()
-        operator.save()
+        operator.save_model()
         operator.test()
     elif args.mode == 'train':
         operator.train()
-        operator.save()
+        operator.save_model()
     else:
         operator.test()
 
