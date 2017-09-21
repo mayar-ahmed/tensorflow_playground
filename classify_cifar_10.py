@@ -93,7 +93,7 @@ class BasicModel:
 
     def build(self):
         self.X = tf.placeholder(tf.float32, [None, 32, 32, 3])
-        self.y = tf.placeholder(tf.uint8, [None])
+        self.y = tf.placeholder(tf.int64, [None])
         self.training = tf.placeholder(tf.bool)
         self.reg = tf.placeholder(tf.float32)
 
@@ -103,7 +103,7 @@ class BasicModel:
         self.flatten = tf.reshape(self.conv3, shape=[-1, 512])
         self.fc1 = BasicModel.affine_bn_relu(self.flatten, 256, 0.3, self.training, self.reg)
         self.fc2 = BasicModel.affine_bn_relu(self.fc1, 128, 0.3, self.training, self.reg)
-        self.scores =  tf.layers.dense(
+        self.scores = tf.layers.dense(
             self.fc2,
             10,
             use_bias=True,
@@ -112,10 +112,10 @@ class BasicModel:
             kernel_regularizer=tf.contrib.layers.l2_regularizer(self.reg),
         )
 
-        self.softmax=tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores)
-        self.predictions= tf.arg_max(self.softmax,1)
-        self.correct_predictions=tf.equal(self.y,self.predictions)
-        self.accuracy=tf.reduce_mean(tf.cast(self.correct_predictions,tf.float32))
+        self.softmax = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores)
+        self.predictions = tf.arg_max(self.softmax, 1)
+        self.correct_predictions = tf.equal(self.y, self.predictions)
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct_predictions, tf.float32))
         self.loss = tf.reduce_mean(self.softmax)
 
         with tf.name_scope('train-operation'):
