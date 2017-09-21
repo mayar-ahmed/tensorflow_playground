@@ -90,7 +90,7 @@ class BasicModel:
 
         with tf.variable_scope('best_acc'):
             # Save the best acc on validation
-            self.best_acc_tensor = tf.Variable(0, trainable=False, name='best_acc')
+            self.best_acc_tensor = tf.Variable(0.0, trainable=False, name='best_acc')
             self.best_acc_input = tf.placeholder('float32', None, name='best_acc_input')
             self.best_acc_assign_op = self.best_acc_tensor.assign(self.best_acc_input)
 
