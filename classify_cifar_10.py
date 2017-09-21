@@ -14,7 +14,7 @@ def read_args():
     Read the arguments of the process.
     :return _args: the arguments of the process
     """
-                                #name, default value , description
+    # name, default value , description
     tf.app.flags.DEFINE_string('model', "", """ MODEL NAME """)
     tf.app.flags.DEFINE_integer('num_epochs', "0", """ n_epochs """)
     tf.app.flags.DEFINE_integer('batch_size', "0", """ batch_size """)
@@ -36,7 +36,7 @@ def read_args():
     return _args
 
 
-def create_dirs(dirs): #badeha list of directories btcreate it
+def create_dirs(dirs):  # badeha list of directories btcreate it
     """
     dirs - a list of directories to create if these directories are not found
     :param dirs:
@@ -52,7 +52,7 @@ def create_dirs(dirs): #badeha list of directories btcreate it
         exit(-1)
 
 
-def create_exp_dirs(args):# create 3 directories: checkpoints, best checkpoint, summaries
+def create_exp_dirs(args):  # create 3 directories: checkpoints, best checkpoint, summaries
     """
     Create experiment and out dirs
     :param args: Arguments of the program
@@ -75,15 +75,15 @@ def create_exp_dirs(args):# create 3 directories: checkpoints, best checkpoint, 
 
 class BasicModel:
     def __init__(self, config):
-        self.config = config #elarguments elly b3taha
+        self.config = config  # elarguments elly b3taha
 
-        #ba7ot imput fvariable beny acreate placeholder wassign operator y7otely elvlue dy
-        with tf.variable_scope('global_epoch'): #basave feh ana fanho epoch
+        # ba7ot imput fvariable beny acreate placeholder wassign operator y7otely elvlue dy
+        with tf.variable_scope('global_epoch'):  # basave feh ana fanho epoch
             self.global_epoch_tensor = tf.Variable(-1, trainable=False, name='global_epoch')
             self.global_epoch_input = tf.placeholder('int32', None, name='global_epoch_input')
             self.global_epoch_assign_op = self.global_epoch_tensor.assign(self.global_epoch_input)
 
-        with tf.variable_scope('global_step'):#ana fiteration kam
+        with tf.variable_scope('global_step'):  # ana fiteration kam
             self.global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
             self.global_step_input = tf.placeholder('int32', None, name='global_step_input')
             self.global_step_assign_op = self.global_step_tensor.assign(self.global_step_input)
@@ -181,10 +181,10 @@ class Train:
         print("Initialization finished")
 
         # Create a saver object
-        #bysave a5er check point
+        # bysave a5er check point
         self.saver = tf.train.Saver(max_to_keep=1,
                                     save_relative_paths=True)
-        #bysave a7san mara esht3'l feha
+        # bysave a7san mara esht3'l feha
         self.saver_best = tf.train.Saver(max_to_keep=1,
                                          save_relative_paths=True)
 
@@ -360,16 +360,12 @@ class Train:
                 cur_it = self.model.global_step_tensor.eval(self.sess)
 
                 # Feed this variables to the network
-                # TODO
-                x,y=self.generator()
                 feed_dict = {
-                    self.model.X:x,
-                    self.model.y:y,
-                    self.model.training:True,
-                    self.model.reg:self.config.reg
-
+                    self.model.X: x_batch,
+                    self.model.y: y_batch,
+                    self.model.training: True,
+                    self.model.reg: self.config.reg
                 }
-
                 # run the feed_forward
                 _, loss, acc, summaries_merged = self.sess.run(
                     [self.model.train_op, self.model.loss, self.model.accuracy, self.model.merged_summaries],
@@ -438,8 +434,12 @@ class Train:
             idx += self.config.batch_size
 
             # Feed this variables to the network
-            # TODO
-            feed_dict = {}
+            feed_dict = {
+                self.model.X: x_batch,
+                self.model.y: y_batch,
+                self.model.training: False,
+                self.model.reg: self.config.reg
+            }
 
             # run the feed_forward
             loss, acc = self.sess.run(
@@ -494,8 +494,12 @@ class Train:
             idx += 1
 
             # Feed this variables to the network
-            # TODO
-            feed_dict = {}
+            feed_dict = {
+                self.model.X: x_batch,
+                self.model.y: y_batch,
+                self.model.training: False,
+                self.model.reg: self.config.reg
+            }
 
             # run the feed_forward
             loss, acc = self.sess.run(
