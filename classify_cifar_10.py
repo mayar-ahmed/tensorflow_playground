@@ -117,7 +117,9 @@ class BasicModel:
         self.predictions = tf.argmax(self.softmax, axis=1)
         self.correct_predictions = tf.equal(self.y, self.predictions)
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_predictions, tf.float32))
-        self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores))
+        self.loss = tf.reduce_mean(
+            tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores)) + tf.reduce_sum(
+            tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
         tf.summary.scalar('loss', self.loss)
         tf.summary.scalar('acc', self.accuracy)
@@ -358,7 +360,6 @@ class Train:
                 # TODO
                 feed_dict = {}
 
-                # TODO revise it
                 # run the feed_forward
                 _, loss, acc, summaries_merged = self.sess.run(
                     [self.model.train_op, self.model.loss, self.model.accuracy, self.model.merged_summaries],
