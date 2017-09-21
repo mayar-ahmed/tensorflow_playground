@@ -18,6 +18,7 @@ def read_args():
     tf.app.flags.DEFINE_integer('num_epochs', "0", """ n_epochs """)
     tf.app.flags.DEFINE_integer('batch_size', "0", """ batch_size """)
     tf.app.flags.DEFINE_float('learning_rate', "0.0", """ learning_rate """)
+    tf.app.flags.DEFINE_float('reg', "0.0", """ reg lambda """)
     tf.app.flags.DEFINE_string('data_dir', "", """ Data dir """)
     tf.app.flags.DEFINE_string('exp_dir', "", """ Experiment dir to store ckpt & summaries """)
     tf.app.flags.DEFINE_boolean('train_n_test', False, """ Finish the train with the number of epochs then test """)
@@ -430,7 +431,7 @@ class Train:
             feed_dict = {}
 
             # run the feed_forward
-            loss, acc, summaries_merged = self.sess.run(
+            loss, acc = self.sess.run(
                 [self.model.loss, self.model.accuracy],
                 feed_dict=feed_dict)
             # log loss and acc
