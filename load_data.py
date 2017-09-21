@@ -1,11 +1,11 @@
 import numpy as np
 
-X_train = np.load("X_train.npy")
-y_train = np.load("y_train.npy")
-X_val = np.load("X_val.npy")
-y_val = np.load("y_val.npy")
-X_test = np.load("X_test.npy")
-y_test = np.load("y_test.npy")
+X_train = np.load("data/X_train.npy")
+y_train = np.load("data/y_train.npy")
+X_val = np.load("data/X_val.npy")
+y_val = np.load("data/y_val.npy")
+X_test = np.load("data/X_test.npy")
+y_test = np.load("data/y_test.npy")
 
 X_train = X_train.astype(np.float32)
 y_train = y_train.astype(np.uint8)
