@@ -92,27 +92,25 @@ class BasicModel:
             self.best_iou_assign_op = self.best_iou_tensor.assign(self.best_iou_input)
 
     def build(self):
-        self.X= tf.placeholder(tf.float32,[None,32,32,3])
-        self.y=tf.placeholder(tf.uint8,[None])
+        self.X = tf.placeholder(tf.float32, [None, 32, 32, 3])
+        self.y = tf.placeholder(tf.uint8, [None])
         self.training = tf.placeholder(tf.bool)
-        self.reg=tf.placeholder(tf.float32)
+        self.reg = tf.placeholder(tf.float32)
 
-        self.conv1=BasicModel.conv_bn_relu_pool(self.X,16,self.straining,(3,3),self.reg)
-        self.conv2=BasicModel.conv_bn_relu_pool(self.conv1,32,self.training,(3,3),self.reg)
-        self.conv3=BasicModel.conv_bn_relu_pool(self.conv2,32,self.training(3,3),self.reg)
-        self.flatten=tf.reshape(self.conv3,shape=[-1,512])
-        self.fc1=BasicModel.affine_bn_relu(self.flatten,256,0.3,self.training,self.reg)
-        self.fc2=BasicModel.affine_bn_relu(self.fc1,128,0.3,self.training,sef.reg)
-        self.scores=BasicModel.affine_bn_relu(self.fc2,10,self.training,self.reg)
+        self.conv1 = BasicModel.conv_bn_relu_pool(self.X, 16, self.training, (3, 3), self.reg)
+        self.conv2 = BasicModel.conv_bn_relu_pool(self.conv1, 32, self.training, (3, 3), self.reg)
+        self.conv3 = BasicModel.conv_bn_relu_pool(self.conv2, 32, self.training, (3, 3), self.reg)
+        self.flatten = tf.reshape(self.conv3, shape=[-1, 512])
+        self.fc1 = BasicModel.affine_bn_relu(self.flatten, 256, 0.3, self.training, self.reg)
+        self.fc2 = BasicModel.affine_bn_relu(self.fc1, 128, 0.3, self.training, self.reg)
+        self.scores = BasicModel.affine_bn_relu(self.fc2, 10, self.training, self.reg)
 
-        self.loss=tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y,logits=self.scores))
-        self.optimizer=tf.train.AdamOptimizer(self.config.learning_rate).minimize(self.loss)
+        self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores))
 
         with tf.name_scope('train-operation'):
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(extra_update_ops):
-                self.optimizer = tf.train.AdamOptimizer(self.args.learning_rate)
-                self.train_op = self.optimizer.minimize(self.loss)
+                self.train_op = tf.train.AdamOptimizer(self.config.learning_rate).minimize(self.loss)
 
     @staticmethod
     def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3), reg=0):
