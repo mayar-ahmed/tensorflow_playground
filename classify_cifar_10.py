@@ -113,24 +113,34 @@ class Train:
         self.sess = sess
         self.model = model
 
-        # shortcut for model params
-        self.params = self.model.params
-
         print("Initializing the variables of the model")
         self.init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
         self.sess.run(self.init)
         print("Initialization finished")
 
         # Create a saver object
-        self.saver = tf.train.Saver(max_to_keep=self.config.max_to_keep,
-                                    keep_checkpoint_every_n_hours=10,
+        self.saver = tf.train.Saver(max_to_keep=1,
                                     save_relative_paths=True)
 
         self.saver_best = tf.train.Saver(max_to_keep=1,
                                          save_relative_paths=True)
 
         # Load from latest checkpoint if found
-        self.load_model(model)
+        self.load_model()
+
+        ##################################################################################
+        # Init summaries
+
+        # Summary variables
+        self.scalar_summary_tags = ['train-loss-per-epoch', 'val-loss-per-epoch',
+                                    'train-acc-per-epoch', 'val-acc-per-epoch']
+        self.summary_tags = []
+        self.summary_placeholders = {}
+        self.summary_ops = {}
+        # init summaries and it's operators
+        self.init_summaries()
+        # Create summary writer
+        self.summary_writer = tf.summary.FileWriter(self.config.summary_dir, self.sess.graph)
 
     def save_model(self):
         """
@@ -150,7 +160,7 @@ class Train:
         self.saver_best.save(self.sess, self.config.checkpoint_best_dir, self.model.global_step_tensor)
         print("Saved a checkpoint for the best model")
 
-    def load_model(self, model):
+    def load_model(self):
         """
         Load the latest checkpoint
         :return:
@@ -163,6 +173,52 @@ class Train:
             print("Model loaded from the latest checkpoint\n")
         else:
             print("\n.. No ckpt, SO First time to train :D ..\n")
+
+    def load_best_model(self):
+        """
+        Load the latest checkpoint
+        :return:
+        """
+        print("Searching for the best checkpoint")
+        latest_checkpoint = tf.train.latest_checkpoint(self.config.checkpoint_best_dir)
+        if latest_checkpoint:
+            print("Loading model checkpoint {} ...\n".format(latest_checkpoint))
+            self.saver_best.restore(self.sess, latest_checkpoint)
+            print("Model loaded from the latest checkpoint\n")
+        else:
+            print("\n.. ERROR No BEST MODEL! ..\n")
+            exit(-1)
+
+    def load_data(self):
+        pass
+
+    def init_summaries(self):
+        """
+        Create the summary part of the graph
+        :return:
+        """
+        with tf.variable_scope('train-summary-per-epoch'):
+            for tag in self.scalar_summary_tags:
+                self.summary_tags += tag
+                self.summary_placeholders[tag] = tf.placeholder('float32', None, name=tag)
+                self.summary_ops[tag] = tf.summary.scalar(tag, self.summary_placeholders[tag])
+
+    def add_summary(self, step, summaries_dict=None, summaries_merged=None):
+        """
+        Add the summaries to tensorboard
+        :param step:
+        :param summaries_dict:
+        :param summaries_merged:
+        :return:
+        """
+        if summaries_dict is not None:
+            summary_list = self.sess.run([self.summary_ops[tag] for tag in summaries_dict.keys()],
+                                         {self.summary_placeholders[tag]: value for tag, value in
+                                          summaries_dict.items()})
+            for summary in summary_list:
+                self.summary_writer.add_summary(summary, step)
+        if summaries_merged is not None:
+            self.summary_writer.add_summary(summaries_merged, step)
 
     def train(self):
         pass
