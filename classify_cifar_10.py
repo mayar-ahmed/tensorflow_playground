@@ -118,6 +118,10 @@ class BasicModel:
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_predictions, tf.float32))
         self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores))
 
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('acc', self.accuracy)
+        self.merged_summaries = tf.summary.merge_all()
+
         with tf.name_scope('train-operation'):
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(extra_update_ops):
@@ -390,11 +394,8 @@ class Train:
                                                                                                 :6])
 
             self.save_model()
-
-            # val the model on validation
-            if cur_epoch % 2 == 0:
-                self.val(step=self.model.global_step_tensor.eval(self.sess),
-                         epoch=self.model.global_epoch_tensor.eval(self.sess))
+            self.val(step=self.model.global_step_tensor.eval(self.sess),
+                     epoch=self.model.global_epoch_tensor.eval(self.sess))
 
         print("Training Finished")
 
@@ -529,11 +530,13 @@ def main():
         if args.train_n_test:
             operator.train()
             operator.save_model()
+            operator.load_best_model()
             operator.test()
         elif args.is_train:
             operator.train()
             operator.save_model()
         else:
+            operator.load_best_model()
             operator.test()
     except KeyboardInterrupt:
         operator.save_model()
