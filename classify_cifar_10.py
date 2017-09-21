@@ -73,13 +73,14 @@ def create_exp_dirs(args):
 
 class BasicModel:
     def __init__(self, config):
+        self.config = config
         pass
 
     def build(self):
         pass
 
     @staticmethod
-    def conv_bn_relu_pool_drop(x, num_filters, train_flag, filter_size=(3, 3)):
+    def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3)):
         conv = tf.layers.conv2d(
             x,
             num_filters,
@@ -99,16 +100,15 @@ class BasicModel:
         return out
 
     @staticmethod
-    def affine_bn_relu(X, out_size, dropout_prob, train_flag):
-        affine=tf.layers.dense(
-            X,
+    def affine_bn_relu(x, out_size, dropout_prob, train_flag):
+        affine = tf.layers.dense(
+            x,
             out_size,
             use_bias=True,
             kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
             kernel_regularizer=tf.contrib.layers.l2_regularizer(),
         )
-
         bn = tf.layers.batch_normalization(affine, training=train_flag)
         relu = tf.nn.relu(bn)
         out = tf.layers.dropout(relu, rate=dropout_prob, training=train_flag)
