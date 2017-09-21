@@ -79,7 +79,7 @@ class BasicModel:
         pass
 
     @staticmethod
-    def conv_bn_relu_pool_drop(x, num_filters,dropout_prob, train_flag,filter_size=(3,3)):
+    def conv_bn_relu_pool_drop(x, num_filters, dropout_prob, train_flag, filter_size=(3, 3)):
         conv = tf.layers.conv2d(
             x,
             num_filters,
@@ -90,7 +90,6 @@ class BasicModel:
             kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
             kernel_regularizer=tf.contrib.layers.l2_regularizer(),
-            trainable=True,
         )
         bn = tf.layers.batch_normalization(conv, training=train_flag)
         maxpool = tf.layers.max_pooling2d(bn, (2, 2), (2, 2), 'same')
