@@ -28,9 +28,15 @@ def read_args():
     _args = tf.app.flags.FLAGS
 
     print("\nUsing this arguments check it\n")
-    for key, value in sorted(vars(_args).items()):
-        if value is not None:
-            print("{} -- {} --".format(key, value))
+    print("{} -- {} --".format("model", _args.model))
+    print("{} -- {} --".format("num_epochs", _args.num_epochs))
+    print("{} -- {} --".format("batch_size", _args.batch_size))
+    print("{} -- {} --".format("learning_rate", _args.learning_rate))
+    print("{} -- {} --".format("reg", _args.reg))
+    print("{} -- {} --".format("data_dir", _args.data_dir))
+    print("{} -- {} --".format("exp_dir", _args.exp_dir))
+    print("{} -- {} --".format("train_n_test", _args.train_n_test))
+    print("{} -- {} --".format("is_train", _args.is_train))
     print("\n\n")
 
     return _args
