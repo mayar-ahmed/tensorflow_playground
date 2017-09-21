@@ -523,6 +523,7 @@ class Train:
 
 def main():
     args = read_args()
+    args = create_exp_dirs(args)
 
     # Reset the graph
     tf.reset_default_graph()
