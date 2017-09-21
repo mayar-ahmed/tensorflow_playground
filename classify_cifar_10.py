@@ -33,8 +33,11 @@ def read_args():
     return _args
 
 
-def BasicModel():
+class BasicModel:
+    def __init__(self, config):
+        pass
 
+    @staticmethod
     def conv_bn_relu_pool(X,W,b,train):
         conv=tf.nn.conv2d(X,W,[1,1,1,1],padding='SAME')+b
         bn=tf.layers.batch_normalization(conv,axis=3,training=train)
@@ -44,17 +47,57 @@ def BasicModel():
 
         return max1
 
+    @staticmethod
     def affine_bn_relu(X,w,b,train):
         affine=tf.matmul(X,w)+b
         bn=tf.layers.batch_normalization(affine,axis=1,training=train)
         relu=tf.nn.relu(bn)
         return relu
 
-    pass
+
+class Train:
+    def __init__(self, sess, model, config):
+        pass
+
+    def train(self):
+        pass
+
+    def validate(self):
+        pass
+
+    def test(self):
+        pass
 
 
 def main():
     args = read_args()
+
+    # Reset the graph
+    tf.reset_default_graph()
+
+    # Create the sess
+    sess = tf.Session()
+
+    # Create Model class and build it
+    model = None
+    if args.model == "Basic":
+        model = BasicModel(config=args)
+    else:
+        print("ERROR model provided is not defined")
+        exit(-1)
+
+    # Create the operator
+    operator = Train(sess=sess, model=model, config=args)
+
+    if args.mode == 'train_n_test':
+        operator.train()
+        operator.save()
+        operator.test()
+    elif args.mode == 'train':
+        operator.train()
+        operator.save()
+    else:
+        operator.test()
 
 
 if __name__ == '__main__':
