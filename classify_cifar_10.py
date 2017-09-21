@@ -37,6 +37,23 @@ class BasicModel:
     def __init__(self, config):
         pass
 
+    @staticmethod
+    def conv_bn_relu_pool(X,W,b,train):
+        conv=tf.nn.conv2d(X,W,[1,1,1,1],padding='SAME')+b
+        bn=tf.layers.batch_normalization(conv,axis=3,training=train)
+        relu=tf.nn.relu(bn)
+        dropout=tf.nn.dropout(relu,0.5)
+        max1=tf.nn.max_pool(relu,[1,2,2,1],[1,2,2,1],'SAME')
+
+        return max1
+
+    @staticmethod
+    def affine_bn_relu(X,w,b,train):
+        affine=tf.matmul(X,w)+b
+        bn=tf.layers.batch_normalization(affine,axis=1,training=train)
+        relu=tf.nn.relu(bn)
+        return relu
+
 
 class Train:
     def __init__(self, sess, model, config):
