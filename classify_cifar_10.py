@@ -339,11 +339,12 @@ class Train:
             # update start idx
             start += self.config.batch_size
 
+            yield x_batch, y_batch
+
             if start >= self.train_data_len:
                 start = 0
                 new_epoch_flag = True
-
-            yield x_batch, y_batch
+                return
 
     def train(self):
         print("Training mode will begin NOW ..")
@@ -455,6 +456,9 @@ class Train:
             loss_list += [loss]
             acc_list += [acc]
 
+            if idx > self.val_data_len:
+                break
+
         # mean over batches
         total_loss = np.mean(loss_list)
         total_acc = np.mean(acc_list)
@@ -515,6 +519,9 @@ class Train:
             # log loss and acc
             loss_list += [loss]
             acc_list += [acc]
+
+            if idx > self.test_data_len:
+                break
 
         # mean over batches
         total_loss = np.mean(loss_list)
