@@ -126,3 +126,6 @@ out/
 
 # npy files
 *.npy
+
+#data
+data/*
