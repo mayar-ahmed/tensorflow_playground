@@ -410,7 +410,7 @@ class Train:
 
             self.save_model()
             self.val(step=self.model.global_step_tensor.eval(self.sess),
-                     epoch=self.model.global_epoch_tensor.eval(self.sess))
+                     epoch=self.model.global_epoch_tensor.eval(self.sess) - 1)
 
         print("Training Finished")
 
