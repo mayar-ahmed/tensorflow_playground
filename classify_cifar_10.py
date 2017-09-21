@@ -77,22 +77,21 @@ class BasicModel:
         pass
 
     def build(self):
-        X= tf.placeholder(tf.float32,[None,32,32,3])
-        y=tf.placeholder(tf.uint8,[None])
-        training = tf.placeholder(tf.bool)
-        reg=tf.placeholder(tf.float32)
+        self.X= tf.placeholder(tf.float32,[None,32,32,3])
+        self.y=tf.placeholder(tf.uint8,[None])
+        self.training = tf.placeholder(tf.bool)
+        self.reg=tf.placeholder(tf.float32)
 
-        conv1=BasicModel.conv_bn_relu_pool(X,16,training,(3,3),reg)
-        conv2=BasicModel.conv_bn_relu_pool(conv1,32,training,(3,3),reg)
-        conv3=BasicModel.conv_bn_relu_pool(conv2,32,training(3,3),reg)
-        flatten=tf.reshape(conv3,shape=[-1,512])
-        fc1=BasicModel.affine_bn_relu(flatten,256,0.3,training,reg)
-        fc2=BasicModel.affine_bn_relu(fc1,128,0.3,training,reg)
-        scores=BasicModel.affine_bn_relu(fc2,10,training,reg)
+        self.conv1=BasicModel.conv_bn_relu_pool(self.X,16,self.straining,(3,3),self.reg)
+        self.conv2=BasicModel.conv_bn_relu_pool(self.conv1,32,self.training,(3,3),self.reg)
+        self.conv3=BasicModel.conv_bn_relu_pool(self.conv2,32,self.training(3,3),self.reg)
+        self.flatten=tf.reshape(self.conv3,shape=[-1,512])
+        self.fc1=BasicModel.affine_bn_relu(self.flatten,256,0.3,self.training,self.reg)
+        self.fc2=BasicModel.affine_bn_relu(self.fc1,128,0.3,self.training,sef.reg)
+        self.scores=BasicModel.affine_bn_relu(self.fc2,10,self.training,self.reg)
 
-        loss=tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(y,10),logits=scores)
-        mean_loss=tf.reduce_mean(loss)
-        optimizer=tf.train.AdamOptimizer(self.config.learning_rate)
+        self.loss=tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y,logits=self.scores))
+        self.optimizer=tf.train.AdamOptimizer(self.config.learning_rate).minimize(self.loss)
 
 
 
