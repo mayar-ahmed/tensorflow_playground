@@ -429,7 +429,7 @@ class Train:
         idx = 0
 
         # get the maximum acc to compare with and save the best model
-        max_acc = self.model.best_acc.tensor.eval(self.sess)
+        max_acc = self.model.best_acc_tensor.eval(self.sess)
 
         # loop by the number of iterations
         for cur_iteration in tt:
