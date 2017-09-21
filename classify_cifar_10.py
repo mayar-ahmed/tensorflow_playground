@@ -103,9 +103,20 @@ class BasicModel:
         self.flatten = tf.reshape(self.conv3, shape=[-1, 512])
         self.fc1 = BasicModel.affine_bn_relu(self.flatten, 256, 0.3, self.training, self.reg)
         self.fc2 = BasicModel.affine_bn_relu(self.fc1, 128, 0.3, self.training, self.reg)
-        self.scores = BasicModel.affine_bn_relu(self.fc2, 10, self.training, self.reg)
+        self.scores =  tf.layers.dense(
+            self.fc2,
+            10,
+            use_bias=True,
+            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+            bias_initializer=tf.zeros_initializer(),
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(self.reg),
+        )
 
-        self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores))
+        self.softmax=tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.scores)
+        self.predictions= tf.arg_max(self.softmax,1)
+        self.correct_predictions=tf.equal(self.y,self.predictions)
+        self.accuracy=tf.reduce_mean(tf.cast(self.correct_predictions,tf.float32))
+        self.loss = tf.reduce_mean(self.softmax)
 
         with tf.name_scope('train-operation'):
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
