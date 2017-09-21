@@ -92,27 +92,31 @@ class BasicModel:
             self.best_iou_assign_op = self.best_iou_tensor.assign(self.best_iou_input)
 
     def build(self):
-        X= tf.placeholder(tf.float32,[None,32,32,3])
-        y=tf.placeholder(tf.uint8,[None])
+        X = tf.placeholder(tf.float32, [None, 32, 32, 3])
+        y = tf.placeholder(tf.uint8, [None])
         training = tf.placeholder(tf.bool)
-        reg=tf.placeholder(tf.float32)
+        reg = tf.placeholder(tf.float32)
 
-        conv1=BasicModel.conv_bn_relu_pool(X,16,training,(3,3),reg)
-        conv2=BasicModel.conv_bn_relu_pool(conv1,32,training,(3,3),reg)
-        conv3=BasicModel.conv_bn_relu_pool(conv2,32,training(3,3),reg)
-        flatten=tf.reshape(conv3,shape=[-1,512])
-        fc1=BasicModel.affine_bn_relu(flatten,256,0.3,training,reg)
-        fc2=BasicModel.affine_bn_relu(fc1,128,0.3,training,reg)
-        scores=BasicModel.affine_bn_relu(fc2,10,training,reg)
+        conv1 = BasicModel.conv_bn_relu_pool(X, 16, training, (3, 3), reg)
+        conv2 = BasicModel.conv_bn_relu_pool(conv1, 32, training, (3, 3), reg)
+        conv3 = BasicModel.conv_bn_relu_pool(conv2, 32, training(3, 3), reg)
+        flatten = tf.reshape(conv3, shape=[-1, 512])
+        fc1 = BasicModel.affine_bn_relu(flatten, 256, 0.3, training, reg)
+        fc2 = BasicModel.affine_bn_relu(fc1, 128, 0.3, training, reg)
+        scores = BasicModel.affine_bn_relu(fc2, 10, training, reg)
 
-        loss=tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(y,10),logits=scores)
-        mean_loss=tf.reduce_mean(loss)
-        optimizer=tf.train.AdamOptimizer(self.config.learning_rate)
+        loss = tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(y, 10), logits=scores)
+        mean_loss = tf.reduce_mean(loss)
+        optimizer = tf.train.AdamOptimizer(self.config.learning_rate)
 
-
+        with tf.name_scope('train-operation'):
+            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(extra_update_ops):
+                self.optimizer = tf.train.AdamOptimizer(self.args.learning_rate)
+                self.train_op = self.optimizer.minimize(self.loss)
 
     @staticmethod
-    def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3),reg=0):
+    def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3), reg=0):
         conv = tf.layers.conv2d(
             x,
             num_filters,
@@ -131,7 +135,7 @@ class BasicModel:
         return out
 
     @staticmethod
-    def affine_bn_relu(x, out_size, dropout_prob, train_flag,reg=0):
+    def affine_bn_relu(x, out_size, dropout_prob, train_flag, reg=0):
         affine = tf.layers.dense(
             x,
             out_size,
@@ -293,27 +297,25 @@ class Train:
         if summaries_merged is not None:
             self.summary_writer.add_summary(summaries_merged, step)
 
-    def generator(self, _data, _len):
+    def generator(self):
         start = 0
-        data = _data
-        len = _len
         new_epoch_flag = True
         idx = None
         while True:
             # init index array if it is a new_epoch
             if new_epoch_flag:
-                idx = np.random.choice(len, len, replace=False)
+                idx = np.random.choice(self.train_data_len, self.train_data_len, replace=False)
                 new_epoch_flag = False
 
             # select the mini_batches
             mask = idx[start:start + self.config.batch_size]
-            x_batch = data['X'][mask]
-            y_batch = data['Y'][mask]
+            x_batch = self.train_data['X'][mask]
+            y_batch = self.train_data['Y'][mask]
 
             # update start idx
             start += self.config.batch_size
 
-            if start >= len:
+            if start >= self.train_data_len:
                 start = 0
                 new_epoch_flag = True
 
@@ -324,7 +326,7 @@ class Train:
         for cur_epoch in range(self.model.global_epoch_tensor.eval(self.sess) + 1, self.config.num_epochs + 1, 1):
 
             # init tqdm and get the epoch value
-            tt = tqdm(self.generator(self.train_data, self.train_data_len),
+            tt = tqdm(self.generator(),
                       total=self.num_iterations_training_per_epoch,
                       desc="epoch-" + str(cur_epoch) + "-")
 
@@ -385,9 +387,8 @@ class Train:
             self.save_model()
 
             # val the model on validation
-            if cur_epoch % 2 == 0:
-                self.val(step=self.model.global_step_tensor.eval(self.sess),
-                         epoch=self.model.global_epoch_tensor.eval(self.sess))
+            self.val(step=self.model.global_step_tensor.eval(self.sess),
+                     epoch=self.model.global_epoch_tensor.eval(self.sess))
 
         print("Training Finished")
 
