@@ -85,11 +85,11 @@ class BasicModel:
             self.global_step_input = tf.placeholder('int32', None, name='global_step_input')
             self.global_step_assign_op = self.global_step_tensor.assign(self.global_step_input)
 
-        with tf.variable_scope('best_iou'):
-            # Save the best iou on validation
-            self.best_iou_tensor = tf.Variable(0, trainable=False, name='best_iou')
-            self.best_iou_input = tf.placeholder('float32', None, name='best_iou_input')
-            self.best_iou_assign_op = self.best_iou_tensor.assign(self.best_iou_input)
+        with tf.variable_scope('best_acc'):
+            # Save the best acc on validation
+            self.best_acc_tensor = tf.Variable(0, trainable=False, name='best_acc')
+            self.best_acc_input = tf.placeholder('float32', None, name='best_acc_input')
+            self.best_acc_assign_op = self.best_acc_tensor.assign(self.best_acc_input)
 
     def build(self):
         self.X = tf.placeholder(tf.float32, [None, 32, 32, 3])
@@ -376,11 +376,8 @@ class Train:
             summaries_dict = dict()
             summaries_dict['train-loss-per-epoch'] = total_loss
             summaries_dict['train-acc-per-epoch'] = total_acc
-            self.add_summary(cur_it, summaries_dict=summaries_dict, summaries_merged=summaries_merged)
-
-            # Update the Global step
-            self.model.global_step_assign_op.eval(session=self.sess,
-                                                  feed_dict={self.model.global_step_input: cur_it + 1})
+            self.add_summary(self.model.global_step_tensor.eval(self.sess), summaries_dict=summaries_dict,
+                             summaries_merged=summaries_merged)
 
             # Update the Cur Epoch tensor
             # it is the last thing because if it is interrupted it repeat this
@@ -415,78 +412,51 @@ class Train:
         # idx of minibatch
         idx = 0
 
-        # reset metrics
-        self.metrics.reset()
-
-        # get the maximum iou to compare with and save the best model
-        max_iou = self.model.best_iou.tensor.eval(self.sess)
+        # get the maximum acc to compare with and save the best model
+        max_acc = self.model.best_acc.tensor.eval(self.sess)
 
         # loop by the number of iterations
         for cur_iteration in tt:
             # load minibatches
-            x_batch = self.val_data['X'][idx:idx + self.args.batch_size]
-            y_batch = self.val_data['Y'][idx:idx + self.args.batch_size]
+            x_batch = self.val_data['X'][idx:idx + self.config.batch_size]
+            y_batch = self.val_data['Y'][idx:idx + self.config.batch_size]
 
             # update idx of minibatch
-            idx += self.args.batch_size
+            idx += self.config.batch_size
 
             # Feed this variables to the network
-            feed_dict = {self.model.x_pl: x_batch,
-                         self.model.y_pl: y_batch,
-                         self.model.is_training: False
-                         }
+            # TODO
+            feed_dict = {}
 
-            # Run the feed forward but the last iteration finalize what you want to do
-            if cur_iteration < self.num_iterations_validation_per_epoch - 1:
+            # run the feed_forward
+            loss, acc, summaries_merged = self.sess.run(
+                [self.model.loss, self.model.accuracy],
+                feed_dict=feed_dict)
+            # log loss and acc
+            loss_list += [loss]
+            acc_list += [acc]
 
-                # run the feed_forward
-                out_argmax, loss, acc, summaries_merged = self.sess.run(
-                    [self.model.out_argmax, self.model.loss, self.model.accuracy, self.model.merged_summaries],
-                    feed_dict=feed_dict)
-                # log loss and acc
-                loss_list += [loss]
-                acc_list += [acc]
-                # log metrics
-                self.metrics.update_metrics_batch(out_argmax, y_batch)
+        # mean over batches
+        total_loss = np.mean(loss_list)
+        total_acc = np.mean(acc_list)
+        # summarize
+        summaries_dict = dict()
+        summaries_dict['val-loss-per-epoch'] = total_loss
+        summaries_dict['val-acc-per-epoch'] = total_acc
+        self.add_summary(step, summaries_dict=summaries_dict)
 
-            else:
+        # print in console
+        tt.close()
+        print("Val-epoch-" + str(epoch) + "-" + "loss:" + str(total_loss) + "-" +
+              "acc:" + str(total_acc)[:6])
 
-                # run the feed_forward
-                out_argmax, loss, acc, summaries_merged, segmented_imgs = self.sess.run(
-                    [self.model.out_argmax, self.model.loss, self.model.accuracy,
-                     self.model.merged_summaries, self.model.segmented_summary],
-                    feed_dict=feed_dict)
-                # log loss and acc
-                loss_list += [loss]
-                acc_list += [acc]
-                # log metrics
-                self.metrics.update_metrics_batch(out_argmax, y_batch)
-                # mean over batches
-                total_loss = np.mean(loss_list)
-                total_acc = np.mean(acc_list)
-                mean_iou = self.metrics.compute_final_metrics(self.num_iterations_validation_per_epoch)
-                # summarize
-                summaries_dict = dict()
-                summaries_dict['val-loss-per-epoch'] = total_loss
-                summaries_dict['val-acc-per-epoch'] = total_acc
-                summaries_dict['mean_iou_on_val'] = mean_iou
-                summaries_dict['val_prediction_sample'] = segmented_imgs
-                self.add_summary(step, summaries_dict=summaries_dict, summaries_merged=summaries_merged)
-
-                # print in console
-                tt.close()
-                print("Val-epoch-" + str(epoch) + "-" + "loss:" + str(total_loss) + "-" +
-                      "acc:" + str(total_acc)[:6] + "-mean_iou:" + str(mean_iou))
-                if mean_iou > max_iou:
-                    print("This validation got a new best iou. so we will save this one")
-                    # save the best model
-                    self.save_best_model()
-                    # Set the new maximum
-                    self.model.best_iou_assign_op.eval(session=self.sess,
-                                                       feed_dict={self.model.best_iou_input: mean_iou})
-
-                # Break the loop to finalize this epoch
-                break
+        if total_acc > max_acc:
+            print("This validation got a new best acc. so we will save this one")
+            # save the best model
+            self.save_best_model()
+            # Set the new maximum
+            self.model.best_acc_assign_op.eval(session=self.sess,
+                                               feed_dict={self.model.best_acc_input: total_acc})
 
     def test(self):
         print("Testing mode will begin NOW..")
@@ -497,13 +467,9 @@ class Train:
         # init acc and loss lists
         loss_list = []
         acc_list = []
-        img_list = []
 
         # idx of image
         idx = 0
-
-        # reset metrics
-        self.metrics.reset()
 
         # loop by the number of iterations
         for cur_iteration in tt:
@@ -515,40 +481,27 @@ class Train:
             idx += 1
 
             # Feed this variables to the network
-            feed_dict = {self.model.x_pl: x_batch,
-                         self.model.y_pl: y_batch,
-                         self.model.is_training: False
-                         }
+            # TODO
+            feed_dict = {}
 
             # run the feed_forward
-            out_argmax, loss, acc, summaries_merged, segmented_imgs = self.sess.run(
-                [self.model.out_argmax, self.model.loss, self.model.accuracy,
-                 self.model.merged_summaries, self.model.segmented_summary],
+            loss, acc = self.sess.run(
+                [self.model.loss, self.model.accuracy],
                 feed_dict=feed_dict)
 
             # log loss and acc
             loss_list += [loss]
             acc_list += [acc]
-            img_list += [segmented_imgs[0]]
-
-            # log metrics
-            self.metrics.update_metrics(out_argmax[0], y_batch[0], 0, 0)
 
         # mean over batches
         total_loss = np.mean(loss_list)
         total_acc = np.mean(acc_list)
-        mean_iou = self.metrics.compute_final_metrics(self.test_data_len)
 
         # print in console
         tt.close()
         print("Here the statistics")
         print("Total_loss: " + str(total_loss))
         print("Total_acc: " + str(total_acc)[:6])
-        print("mean_iou: " + str(mean_iou))
-
-        print("Plotting imgs")
-        for i in range(len(img_list)):
-            plt.imsave(self.args.imgs_dir + 'test_' + str(i) + '.png', img_list[i])
 
 
 def main():
