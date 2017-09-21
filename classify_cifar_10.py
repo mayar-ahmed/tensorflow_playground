@@ -5,6 +5,7 @@ Keep Calm and be ready to classify
 
 import tensorflow as tf
 import numpy as np
+import os
 from tqdm import tqdm
 
 
@@ -33,8 +34,48 @@ def read_args():
     return _args
 
 
+def create_dirs(dirs):
+    """
+    dirs - a list of directories to create if these directories are not found
+    :param dirs:
+    :return exit_code: 0:success -1:failed
+    """
+    try:
+        for dir_ in dirs:
+            if not os.path.exists(dir_):
+                os.makedirs(dir_)
+        return 0
+    except Exception as err:
+        print("Creating directories error: {0}".format(err))
+        exit(-1)
+
+
+def create_exp_dirs(args):
+    """
+    Create experiment and out dirs
+    :param args: Arguments of the program
+    :return: args , The new one which contains all needed dirs
+    """
+    args.data_dir = os.path.realpath(os.getcwd()) + "/data/" + args.data_dir + "/"
+    args.exp_dir = os.path.realpath(os.getcwd()) + "/experiments/" + args.exp_dir + "/"
+    args.summary_dir = args.exp_dir + 'summaries/'
+    args.checkpoint_dir = args.exp_dir + 'checkpoints/'
+    args.checkpoint_best_dir = args.exp_dir + 'checkpoints/best/'
+
+    dirs_to_be_created = [args.checkpoint_dir,
+                          args.checkpoint_best_dir,
+                          args.summary_dir]
+    # Create the dirs if it is not exist
+    create_dirs(dirs_to_be_created)
+
+    return args
+
+
 class BasicModel:
     def __init__(self, config):
+        pass
+
+    def build(self):
         pass
 
     @staticmethod
@@ -74,7 +115,62 @@ class BasicModel:
 
 class Train:
     def __init__(self, sess, model, config):
-        pass
+        print("\nTraining is initializing itself\n")
+
+        self.config = config
+        self.sess = sess
+        self.model = model
+
+        # shortcut for model params
+        self.params = self.model.params
+
+        print("Initializing the variables of the model")
+        self.init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.sess.run(self.init)
+        print("Initialization finished")
+
+        # Create a saver object
+        self.saver = tf.train.Saver(max_to_keep=self.config.max_to_keep,
+                                    keep_checkpoint_every_n_hours=10,
+                                    save_relative_paths=True)
+
+        self.saver_best = tf.train.Saver(max_to_keep=1,
+                                         save_relative_paths=True)
+
+        # Load from latest checkpoint if found
+        self.load_model(model)
+
+    def save_model(self):
+        """
+        Save Model Checkpoint
+        :return:
+        """
+        print("saving a checkpoint")
+        self.saver.save(self.sess, self.config.checkpoint_dir, self.model.global_step_tensor)
+        print("Saved a checkpoint")
+
+    def save_best_model(self):
+        """
+        Save Model Checkpoint
+        :return:
+        """
+        print("saving a checkpoint for the best model")
+        self.saver_best.save(self.sess, self.config.checkpoint_best_dir, self.model.global_step_tensor)
+        print("Saved a checkpoint for the best model")
+
+    def load_model(self, model):
+        """
+        Load the latest checkpoint
+        :return:
+        """
+        print("Searching for a checkpoint")
+        latest_checkpoint = tf.train.latest_checkpoint(self.config.checkpoint_dir)
+        if latest_checkpoint:
+            print("Loading model checkpoint {} ...\n".format(latest_checkpoint))
+            self.saver.restore(self.sess, latest_checkpoint)
+            print("Model loaded from the latest checkpoint\n")
+        else:
+            print("\n.. No ckpt, SO First time to train :D ..\n")
 
     def train(self):
         pass
@@ -103,7 +199,8 @@ def main():
         print("ERROR model provided is not defined")
         exit(-1)
 
-    # Create the operator
+    # build the model and Create the operator
+    model.build()
     operator = Train(sess=sess, model=model, config=args)
 
     if args.mode == 'train_n_test':
