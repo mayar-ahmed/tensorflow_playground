@@ -38,25 +38,18 @@ class BasicModel:
         pass
 
     @staticmethod
-    def conv_bn_relu_pool_drop(x, dropout_prob, train_flag):
+    def conv_bn_relu_pool_drop(x, num_filters,dropout_prob, train_flag,filter_size=(3,3)):
         conv = tf.layers.conv2d(
-            inputs,
-            filters,
-            kernel_size,
+            x,
+            num_filters,
+            filter_size,
             strides=(1, 1),
-            padding='valid',
-            data_format='channels_last',
-            dilation_rate=(1, 1),
-            activation=None,
+            padding='same',
             use_bias=True,
-            kernel_initializer=None,
+            kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
-            kernel_regularizer=None,
-            bias_regularizer=None,
-            activity_regularizer=None,
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(),
             trainable=True,
-            name=None,
-            reuse=None
         )
         bn = tf.layers.batch_normalization(conv, training=train_flag)
         maxpool = tf.layers.max_pooling2d(bn, (2, 2), (2, 2), 'same')
