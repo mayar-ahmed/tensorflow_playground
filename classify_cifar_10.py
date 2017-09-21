@@ -79,7 +79,7 @@ class BasicModel:
         pass
 
     @staticmethod
-    def conv_bn_relu_pool_drop(x, num_filters, dropout_prob, train_flag, filter_size=(3, 3)):
+    def conv_bn_relu_pool_drop(x, num_filters, train_flag, filter_size=(3, 3)):
         conv = tf.layers.conv2d(
             x,
             num_filters,
@@ -90,19 +90,29 @@ class BasicModel:
             kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
             kernel_regularizer=tf.contrib.layers.l2_regularizer(),
+
         )
         bn = tf.layers.batch_normalization(conv, training=train_flag)
         maxpool = tf.layers.max_pooling2d(bn, (2, 2), (2, 2), 'same')
-        relu = tf.nn.relu(maxpool)
-        out = tf.layers.dropout(relu, rate=dropout_prob, training=train_flag)
+        out = tf.nn.relu(maxpool)
+
         return out
 
     @staticmethod
-    def affine_bn_relu(X, w, b, train):
-        affine = tf.matmul(X, w) + b
-        bn = tf.layers.batch_normalization(affine, axis=1, training=train)
+    def affine_bn_relu(X, out_size, dropout_prob, train_flag):
+        affine=tf.layers.dense(
+            X,
+            out_size,
+            use_bias=True,
+            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+            bias_initializer=tf.zeros_initializer(),
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(),
+        )
+
+        bn = tf.layers.batch_normalization(affine, training=train_flag)
         relu = tf.nn.relu(bn)
-        return relu
+        out = tf.layers.dropout(relu, rate=dropout_prob, training=train_flag)
+        return out
 
 
 class Train:
