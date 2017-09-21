@@ -92,10 +92,27 @@ class BasicModel:
             self.best_iou_assign_op = self.best_iou_tensor.assign(self.best_iou_input)
 
     def build(self):
-        pass
+        X= tf.placeholder(tf.float32,[None,32,32,3])
+        y=tf.placeholder(tf.uint8,[None])
+        training = tf.placeholder(tf.bool)
+        reg=tf.placeholder(tf.float32)
+
+        conv1=BasicModel.conv_bn_relu_pool(X,16,training,(3,3),reg)
+        conv2=BasicModel.conv_bn_relu_pool(conv1,32,training,(3,3),reg)
+        conv3=BasicModel.conv_bn_relu_pool(conv2,32,training(3,3),reg)
+        flatten=tf.reshape(conv3,shape=[-1,512])
+        fc1=BasicModel.affine_bn_relu(flatten,256,0.3,training,reg)
+        fc2=BasicModel.affine_bn_relu(fc1,128,0.3,training,reg)
+        scores=BasicModel.affine_bn_relu(fc2,10,training,reg)
+
+        loss=tf.nn.softmax_cross_entropy_with_logits(labels=tf.one_hot(y,10),logits=scores)
+        mean_loss=tf.reduce_mean(loss)
+        optimizer=tf.train.AdamOptimizer(self.config.learning_rate)
+
+
 
     @staticmethod
-    def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3)):
+    def conv_bn_relu_pool(x, num_filters, train_flag, filter_size=(3, 3),reg=0):
         conv = tf.layers.conv2d(
             x,
             num_filters,
@@ -105,7 +122,7 @@ class BasicModel:
             use_bias=True,
             kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(),
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(reg),
 
         )
         bn = tf.layers.batch_normalization(conv, training=train_flag)
@@ -114,14 +131,14 @@ class BasicModel:
         return out
 
     @staticmethod
-    def affine_bn_relu(x, out_size, dropout_prob, train_flag):
+    def affine_bn_relu(x, out_size, dropout_prob, train_flag,reg=0):
         affine = tf.layers.dense(
             x,
             out_size,
             use_bias=True,
             kernel_initializer=tf.contrib.layers.xavier_initializer(),
             bias_initializer=tf.zeros_initializer(),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(),
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(reg),
         )
         bn = tf.layers.batch_normalization(affine, training=train_flag)
         relu = tf.nn.relu(bn)
